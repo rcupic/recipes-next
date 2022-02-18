@@ -1,8 +1,9 @@
-import axios from 'axios';
 import * as React from 'react';
-import { IIngredient } from '../../components/Recipe/interfaces/Ingredient.interface';
-import { IRecipe } from '../../components/Recipe/interfaces/Recipe.interface';
+import { IIngredient } from '../../services/interfaces/Ingredient.interface';
+import { IRecipe } from '../../services/interfaces/Recipe.interface';
 import Recipe from '../../components/Recipe/UpdateRecipe';
+import { recipeApiService } from '../../services/RecipeApi.service';
+import { ingredientApiService } from '../../services/IngredientApi.service';
 
 export default function RecipesIndex({
   recipe,
@@ -16,19 +17,22 @@ export default function RecipesIndex({
 
 export const getServerSideProps = async ({
   query: { id },
+}: {
+  query: { id: string };
 }): Promise<{
   props?: { recipe: IRecipe; ingredients: IIngredient[] };
   notFound?: boolean;
 }> => {
   try {
-    const { data } = await axios.get<IRecipe>(
-      `http://localhost:3001/recipes/${id}`,
-    );
-    const { data: ingredientsData } = await axios.get<IIngredient[]>(
-      `http://localhost:3001/ingredients`,
-    );
+    const recipe = await recipeApiService.getRecipeById(id);
 
-    return { props: { recipe: data, ingredients: ingredientsData } };
+    if (!recipe) {
+      return { notFound: true };
+    }
+
+    const ingredients = await ingredientApiService.getIngredients();
+
+    return { props: { recipe, ingredients } };
   } catch (error) {
     return { notFound: true };
   }

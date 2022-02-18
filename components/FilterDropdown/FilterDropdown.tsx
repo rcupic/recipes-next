@@ -36,9 +36,7 @@ export default function FilterDropdow(): JSX.Element {
     <div>
       <FormControl
         sx={{
-          m: 1,
           width: '10rem',
-          marginBottom: '0rem',
           marginTop: '1rem',
         }}
       >
@@ -51,7 +49,6 @@ export default function FilterDropdow(): JSX.Element {
           onChange={handleChange}
           input={<OutlinedInput label="Ingredients" />}
           renderValue={() => 'Ingredient'}
-          sx={{ height: '3rem' }}
           MenuProps={MenuProps}
         >
           {ingredients.map(({ id, name }) => {
@@ -60,7 +57,7 @@ export default function FilterDropdow(): JSX.Element {
             );
 
             return (
-              <MenuItem key={id} value={id}>
+              <MenuItem key={id} value={id} sx={{ height: '2rem' }}>
                 <Checkbox checked={checked} />
                 <ListItemText primary={name} />
               </MenuItem>

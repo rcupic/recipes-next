@@ -1,7 +1,7 @@
-import axios from 'axios';
 import * as React from 'react';
-import { IIngredient } from '../../components/Recipe/interfaces/Ingredient.interface';
+import { IIngredient } from '../../services/interfaces/Ingredient.interface';
 import RecipeTable from '../../components/RecipeTable/RecipeTable';
+import { ingredientApiService } from '../../services/IngredientApi.service';
 
 export default function RecipesIndex({
   ingredients,
@@ -16,15 +16,9 @@ export default function RecipesIndex({
 }
 
 export const getServerSideProps = async (): Promise<{
-  props?: { ingredients: IIngredient[] };
+  props: { ingredients: IIngredient[] };
 }> => {
-  try {
-    const { data: ingredientsData } = await axios.get<IIngredient[]>(
-      `http://localhost:3001/ingredients`,
-    );
+  const ingredients = await ingredientApiService.getIngredients();
 
-    return { props: { ingredients: ingredientsData } };
-  } catch (error) {
-    return { props: { ingredients: [] } };
-  }
+  return { props: { ingredients } };
 };

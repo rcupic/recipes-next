@@ -1,60 +1,75 @@
-import {
-  Box,
-  Button,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  SelectChangeEvent,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Button, IconButton, TextField, Typography } from '@mui/material';
 import * as React from 'react';
-import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
-import axios from 'axios';
-import { IRecipe } from './interfaces/Recipe.interface';
-import { IIngredient } from './interfaces/Ingredient.interface';
+import { useRouter } from 'next/router';
+import { recipeApiService } from '../../services/RecipeApi.service';
+import { IIngredient } from '../../services/interfaces/Ingredient.interface';
+import { RecipeContext } from '../../contexts/RecipeContext';
+import IngredientsDropdown from '../IngredientsDropdown/IngredientsDropdown';
 
-const CreateRecipe: React.FC<{ ingredients: IIngredient[] }> = ({
+export default function CreateRecipe({
   ingredients,
-}) => {
+}: {
+  ingredients: IIngredient[];
+}) {
   const [name, changeName] = React.useState('');
   const [description, changeDescription] = React.useState('');
   const [recipeIngredients, changeRecipeIngredients] = React.useState<
     IIngredient[]
   >([]);
   const [isSubmitAble, changeIsSubmitAble] = React.useState(false);
-  const [dropdownValue, changeDropdownValue] = React.useState(
-    ingredients[0].id,
-  );
+  const [nameFieldError, changeNameFieldError] = React.useState('');
+  const [descriptionFieldError, changeDescriptionFieldError] =
+    React.useState('');
 
-  const handleSubmit = (): void => {
-    axios
-      .post<IRecipe>(`http://localhost:3001/recipes`, {
+  const router = useRouter();
+
+  const handleOnSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    recipeApiService
+      .createRecipe({
         name,
         description,
         ingredientIds: recipeIngredients.map(({ id }) => id),
       })
-      .then(response => {
-        window.location.href = `/recipes/${response.data.id}`;
+      .then(createdRecipe => {
+        router.push(`/recipes/${createdRecipe.id}`);
         changeIsSubmitAble(false);
       })
       .catch(error => console.log(error));
   };
 
   React.useEffect((): void => {
-    if (name && description) {
+    if (name && name.length > 1 && description && description.length > 1) {
       changeIsSubmitAble(true);
+      changeNameFieldError('');
+      changeDescriptionFieldError('');
+    } else {
+      if (name) {
+        if (name.length < 2) {
+          changeNameFieldError('Minimum 2 characters');
+          changeIsSubmitAble(false);
+        } else if (nameFieldError) {
+          changeNameFieldError('');
+        }
+      }
+      if (description) {
+        if (description.length < 2) {
+          changeDescriptionFieldError('Minimum 2 characters');
+          changeIsSubmitAble(false);
+        } else if (descriptionFieldError) {
+          changeDescriptionFieldError('');
+        }
+      }
     }
-  }, [name, description]);
+  }, [name, description, nameFieldError, descriptionFieldError]);
 
-  const handleDropdownValueChange = (e: SelectChangeEvent<string>): void => {
-    changeDropdownValue(e.target.value);
-  };
-
-  const handleIngredientMinusClick = (id: string): void => {
-    const indexOfId = recipeIngredients.findIndex(el => el.id === id);
+  const handleIngredientMinusClick = (
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+  ): void => {
+    const indexOfId = recipeIngredients.findIndex(
+      el => el.id === e.currentTarget.dataset.recipeId,
+    );
 
     if (indexOfId === -1) {
       return;
@@ -68,46 +83,75 @@ const CreateRecipe: React.FC<{ ingredients: IIngredient[] }> = ({
     changeRecipeIngredients(otherIngredients);
   };
 
-  const handleIngredientAddClick = (): void => {
-    const indexOfId = recipeIngredients.findIndex(
-      el => el.id === dropdownValue,
-    );
-
-    if (indexOfId !== -1) {
-      return;
-    }
-
-    const ingredient = ingredients.find(el => el.id === dropdownValue);
-
-    changeRecipeIngredients([ingredient, ...recipeIngredients]);
+  const handleDescriptionOnChange = (
+    e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
+  ) => {
+    changeDescription(e.target.value);
   };
+
+  const handleNameOnChange = (
+    e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
+  ) => {
+    changeName(e.target.value);
+  };
+
+  const value = React.useMemo(
+    () => ({
+      ingredients,
+      addIngredient: (dropdownValue: string) => {
+        const indexOfId = recipeIngredients.findIndex(
+          el => el.id === dropdownValue,
+        );
+
+        if (indexOfId !== -1) {
+          return;
+        }
+
+        const ingredient = ingredients.find(el => el.id === dropdownValue);
+
+        if (ingredient) {
+          changeRecipeIngredients([ingredient, ...recipeIngredients]);
+        }
+      },
+    }),
+    [ingredients, recipeIngredients],
+  );
 
   return (
     <form
       style={{
         marginLeft: '3rem',
       }}
-      onSubmit={e => {
-        e.preventDefault();
-        return handleSubmit();
-      }}
+      onSubmit={handleOnSubmit}
     >
       <Typography component="div" variant="h2">
         Recipe
       </Typography>
-      <div style={{ marginTop: '3rem', marginBottom: '3rem' }}>
+      <div
+        style={{
+          margin: '3rem 0rem 3rem 0rem',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          height: '23rem',
+        }}
+      >
         <TextField
+          error={!!nameFieldError}
+          helperText={nameFieldError}
           inputProps={{ width: '13rem' }}
           sx={{ display: 'block' }}
           id="filled-basic"
           label="Name"
           variant="filled"
           required
-          onChange={e => changeName(e.target.value)}
+          onChange={handleNameOnChange}
         />
         <TextField
+          error={!!descriptionFieldError}
+          helperText={descriptionFieldError}
           inputProps={{ width: '13rem' }}
-          sx={{ marginTop: '2rem', display: 'block' }}
+          sx={{ display: 'block' }}
           multiline
           rows={10}
           style={{ display: 'block' }}
@@ -115,7 +159,7 @@ const CreateRecipe: React.FC<{ ingredients: IIngredient[] }> = ({
           label="Description"
           variant="filled"
           required
-          onChange={e => changeDescription(e.target.value)}
+          onChange={handleDescriptionOnChange}
         />
       </div>
 
@@ -127,33 +171,18 @@ const CreateRecipe: React.FC<{ ingredients: IIngredient[] }> = ({
           <div key={el.id}>
             <Typography component="div" variant="body1" sx={{ width: '10rem' }}>
               {el.name}
-              <Button type="button">
-                <RemoveIcon onClick={() => handleIngredientMinusClick(el.id)} />
-              </Button>
+              <IconButton
+                data-recipe-id={el.id}
+                onClick={handleIngredientMinusClick}
+              >
+                <RemoveIcon color="primary" />
+              </IconButton>
             </Typography>
           </div>
         ))}
-        <Box sx={{ marginTop: '3rem' }}>
-          <FormControl sx={{ width: '10rem' }}>
-            <InputLabel id="demo-simple-select-label">Ingredient</InputLabel>
-            <Select
-              labelId="demo-simple-select-label"
-              id="demo-simple-select"
-              value={dropdownValue}
-              label="Ingredient"
-              onChange={handleDropdownValueChange}
-            >
-              {ingredients.map(el => (
-                <MenuItem value={el.id} key={el.id}>
-                  {el.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Button type="button">
-            <AddIcon onClick={() => handleIngredientAddClick()} />
-          </Button>
-        </Box>
+        <RecipeContext.Provider value={value}>
+          <IngredientsDropdown />
+        </RecipeContext.Provider>
       </div>
       <div style={{ marginTop: '3rem', marginBottom: '3rem' }}>
         {isSubmitAble ? (
@@ -166,6 +195,4 @@ const CreateRecipe: React.FC<{ ingredients: IIngredient[] }> = ({
       </div>
     </form>
   );
-};
-
-export default CreateRecipe;
+}

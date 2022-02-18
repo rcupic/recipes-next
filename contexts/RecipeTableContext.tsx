@@ -1,5 +1,5 @@
 import React from 'react';
-import { IIngredient } from '../components/Recipe/interfaces/Ingredient.interface';
+import { IIngredient } from '../services/interfaces/Ingredient.interface';
 
 export const RecipeTableContext = React.createContext(
   {} as {
@@ -9,7 +9,7 @@ export const RecipeTableContext = React.createContext(
     selectedValues: string[];
     pickedIngredients: IIngredient[];
     changePage: (i: number) => void;
-    handleFilterChange: (i: any) => void;
+    handleFilterChange: (i: string | string[]) => void;
     handleSearchChange: (i: string) => void;
   },
 );

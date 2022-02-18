@@ -6,34 +6,35 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import PaginationControlled from '../PaginationControlled/PaginationControlled';
-import axios from 'axios';
-import { RecipeTableContext } from '../../contexts/RecipeTableContext';
 import { Button, IconButton } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import { useRouter } from 'next/router';
+import PaginationControlled from '../PaginationControlled/PaginationControlled';
+import { RecipeTableContext } from '../../contexts/RecipeTableContext';
 import SearchInput from '../SearchInput/SearchInput';
 import FilterDropdow from '../FilterDropdown/FilterDropdown';
-import { IRecipe } from '../Recipe/interfaces/Recipe.interface';
-import { IIngredient } from '../Recipe/interfaces/Ingredient.interface';
+import { IRecipe } from '../../services/interfaces/Recipe.interface';
+import { IIngredient } from '../../services/interfaces/Ingredient.interface';
+import { recipeApiService } from '../../services/RecipeApi.service';
 
 const columns: {
-  id: string;
+  id: 'name' | 'ingredients' | 'description' | 'actions';
   label: string;
-  minWidth: number;
+  width: number;
   align?: 'right';
 }[] = [
-  { id: 'name', label: 'Name', minWidth: 100 },
-  { id: 'ingredients', label: 'Ingredients', minWidth: 100 },
+  { id: 'name', label: 'Name', width: 100 },
+  { id: 'ingredients', label: 'Ingredients', width: 100 },
   {
     id: 'description',
     label: 'Description',
-    minWidth: 100,
+    width: 100,
   },
   {
     id: 'actions',
     label: '',
-    minWidth: 10,
+    width: 10,
     align: 'right',
   },
 ];
@@ -52,11 +53,9 @@ export default function RecipeTable({
   const [searchInput, changeSearchInput] = React.useState('');
   const [selectedValues, changeSelectedValues] = React.useState<string[]>([]);
 
-  React.useEffect((): void => {
-    refreshTableRows();
-  }, [page, pickedIngredients, searchInput]);
+  const router = useRouter();
 
-  const refreshTableRows = (): void => {
+  const refreshTableRows = React.useCallback(() => {
     const params = { page, limit: 5 };
 
     if (pickedIngredients.length) {
@@ -69,62 +68,71 @@ export default function RecipeTable({
       Object.assign(params, { nameWordStartWith: searchInput });
     }
 
-    axios
-      .get<{ rows: IRecipe[]; count: number; pages: number }>(
-        'http://localhost:3001/recipes',
-        { params },
-      )
+    recipeApiService
+      .getRecipes(params)
       .then(response => {
-        changeRows(response.data.rows);
-        changeCount(response.data.pages);
+        changeRows(response.rows);
+        changeCount(response.pages);
       })
       .catch(error => console.log(error));
-  };
+  }, [page, searchInput, pickedIngredients]);
+
+  React.useEffect((): void => {
+    refreshTableRows();
+  }, [page, pickedIngredients, searchInput, refreshTableRows]);
 
   const handleDelete = (id: string): void => {
-    axios
-      .delete(`http://localhost:3001/recipes/${id}`)
-      .then(() => {
-        refreshTableRows();
-      })
+    recipeApiService
+      .deleteRecipe(id)
+      .then(refreshTableRows)
       .catch(error => console.log(error));
   };
 
-  const handleTableRowClick = (id: string): void => {
-    window.location.href = `/recipes/${id}`;
-  };
-
-  const handleNewRecipeClick = (
-    e: React.MouseEvent<SVGSVGElement, MouseEvent>,
+  const handleTableRowOnClick = (
+    e: React.MouseEvent<HTMLTableRowElement, MouseEvent>,
   ): void => {
-    window.location.href = '/recipes/new-recipe';
+    router.push(`/recipes/${e.currentTarget.dataset.recipeId}`);
   };
 
-  const handleFilterChange = (value: string[]): void => {
-    const selectedIngredients = ingredients.filter(({ id }) =>
-      value.includes(id),
-    );
-
-    changeSelectedValues(selectedIngredients.map(({ id }) => id));
-    changePickedIngredients(selectedIngredients);
+  const handleNewRecipeOnClick = (): void => {
+    router.push(`/recipes/new-recipe`);
   };
 
-  const handleNameChange = (input: string): void => {
-    if (input.length > 2) {
-      changeSearchInput(input);
-    }
+  const handleDeleteButtonOnClick = (
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+  ): void => {
+    e.stopPropagation();
+    handleDelete(e.currentTarget.dataset.recipeId as string);
   };
 
-  const value = {
-    page,
-    count,
-    ingredients,
-    selectedValues,
-    pickedIngredients,
-    changePage,
-    handleFilterChange,
-    handleSearchChange: handleNameChange,
-  };
+  const value = React.useMemo(
+    () => ({
+      page,
+      count,
+      ingredients,
+      selectedValues,
+      pickedIngredients,
+      changePage,
+      handleFilterChange: (filterValue: string | string[]) => {
+        const selectedIngredients = ingredients.filter(({ id }) =>
+          filterValue.includes(id),
+        );
+
+        changeSelectedValues(selectedIngredients.map(({ id }) => id));
+        changePickedIngredients(selectedIngredients);
+      },
+      handleSearchChange: (input: string): void => {
+        if (input.length > 2) {
+          changeSearchInput(input);
+          changePage(1);
+        } else if (input.length === 0) {
+          changeSearchInput('');
+          changePage(1);
+        }
+      },
+    }),
+    [page, count, ingredients, selectedValues, pickedIngredients],
+  );
 
   return (
     <RecipeTableContext.Provider value={value}>
@@ -149,11 +157,11 @@ export default function RecipeTable({
                     <TableCell
                       key={column.id}
                       align={column.align}
-                      style={{ minWidth: column.minWidth }}
+                      style={{ width: column.width }}
                     >
                       {column.id === 'actions' ? (
                         <Button type="button">
-                          <AddIcon onClick={handleNewRecipeClick} />
+                          <AddIcon onClick={handleNewRecipeOnClick} />
                         </Button>
                       ) : (
                         column.label
@@ -164,45 +172,58 @@ export default function RecipeTable({
               </TableRow>
             </TableHead>
             <TableBody>
-              {rows.map((row): JSX.Element => {
-                return (
+              {rows.map(
+                (row): JSX.Element => (
                   <TableRow
                     hover
                     role="button"
                     tabIndex={-1}
                     key={row.id}
-                    onClick={e => handleTableRowClick(row.id)}
+                    data-recipe-id={row.id}
+                    onClick={handleTableRowOnClick}
                   >
-                    {columns.map((column): JSX.Element => {
-                      if (column.id === 'actions') {
+                    {columns.map(
+                      (column: {
+                        id: 'name' | 'ingredients' | 'description' | 'actions';
+                        label: string;
+                        width: number;
+                        align?: 'right' | undefined;
+                      }): JSX.Element => {
+                        if (column.id === 'actions') {
+                          return (
+                            <TableCell
+                              key={column.id}
+                              align={column.align}
+                              sx={{ width: column.width }}
+                            >
+                              <IconButton
+                                data-recipe-id={row.id}
+                                onClick={handleDeleteButtonOnClick}
+                                id={row.id}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </TableCell>
+                          );
+                        }
+
+                        let displayValue = row[column.id];
+
+                        if (Array.isArray(displayValue)) {
+                          const names = displayValue.map(({ name }) => name);
+                          displayValue = names.join(',');
+                        }
+
                         return (
                           <TableCell key={column.id} align={column.align}>
-                            <IconButton
-                              onClick={() => handleDelete(row.id)}
-                              id={row.id}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
+                            {displayValue}
                           </TableCell>
                         );
-                      }
-
-                      let value = row[column.id];
-
-                      if (Array.isArray(value)) {
-                        const names = value.map(({ name }) => name);
-                        value = names.join(',');
-                      }
-
-                      return (
-                        <TableCell key={column.id} align={column.align}>
-                          {value}
-                        </TableCell>
-                      );
-                    })}
+                      },
+                    )}
                   </TableRow>
-                );
-              })}
+                ),
+              )}
             </TableBody>
           </Table>
         </TableContainer>
