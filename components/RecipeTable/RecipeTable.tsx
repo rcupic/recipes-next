@@ -120,14 +120,15 @@ export default function RecipeTable({
 
         changeSelectedValues(selectedIngredients.map(({ id }) => id));
         changePickedIngredients(selectedIngredients);
+        changePage(1);
       },
       handleSearchChange: (input: string): void => {
         if (input.length > 2) {
+          changePage(1);
           changeSearchInput(input);
-          changePage(1);
         } else if (input.length === 0) {
-          changeSearchInput('');
           changePage(1);
+          changeSearchInput('');
         }
       },
     }),

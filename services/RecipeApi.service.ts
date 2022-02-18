@@ -21,13 +21,17 @@ class RecipeApiService {
     pages: number;
   }> => {
     try {
-      const { data } = await this.axiosRecipeApiService.get<{
-        rows: IRecipe[];
-        count: number;
-        pages: number;
+      const {
+        data: { payload },
+      } = await this.axiosRecipeApiService.get<{
+        payload: {
+          rows: IRecipe[];
+          count: number;
+          pages: number;
+        };
       }>('/', { params });
 
-      return data;
+      return payload;
     } catch (error) {
       console.log(error);
       return { rows: [], count: 0, pages: 0 };
@@ -36,9 +40,11 @@ class RecipeApiService {
 
   public getRecipeById = async (id: string): Promise<IRecipe | null> => {
     try {
-      const { data } = await this.axiosRecipeApiService.get<IRecipe>(`/${id}`);
+      const {
+        data: { payload },
+      } = await this.axiosRecipeApiService.get<{ payload: IRecipe }>(`/${id}`);
 
-      return data;
+      return payload;
     } catch (error) {
       console.log(error);
       return null;
@@ -58,12 +64,14 @@ class RecipeApiService {
     description: string;
     ingredientIds: string[];
   }): Promise<IRecipe> => {
-    const { data: createdRecipe } = await this.axiosRecipeApiService.post(
+    const {
+      data: { payload },
+    } = await this.axiosRecipeApiService.post<{ payload: IRecipe }>(
       '/',
       values,
     );
 
-    return createdRecipe;
+    return payload;
   };
 
   public updateRecipe = async (
@@ -74,12 +82,13 @@ class RecipeApiService {
       ingredientIds?: string[];
     },
   ): Promise<IRecipe> => {
-    const { data: updatedRecipe } = await this.axiosRecipeApiService.patch(
-      `/${id}`,
-      values,
-    );
+    const {
+      data: { payload },
+    } = await this.axiosRecipeApiService.patch<{
+      payload: IRecipe;
+    }>(`/${id}`, values);
 
-    return updatedRecipe;
+    return payload;
   };
 }
 

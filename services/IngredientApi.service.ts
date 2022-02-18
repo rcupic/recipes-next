@@ -12,11 +12,13 @@ class IngredientApiService {
 
   public getIngredients = async (): Promise<IIngredient[]> => {
     try {
-      const { data: ingredients } = await this.axiosIngredientApiService.get<
-        IIngredient[]
-      >('/');
+      const {
+        data: { payload },
+      } = await this.axiosIngredientApiService.get<{
+        payload: IIngredient[];
+      }>('/');
 
-      return ingredients;
+      return payload;
     } catch (error) {
       console.log(error);
       return [];
